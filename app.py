@@ -121,14 +121,18 @@ if audio_input and model:
         m2.metric("Neural Confidence", f"{confidence:.2f}%")
         m3.metric("Spectral Sampling", f"{sr} Hz")
         m4.metric("MFCC Coeffs", "40-Dim")
-
+        st.audio(audio_input, format="audio/wav")
         st.markdown("---")
 
         # VISUALIZATION
         tab1, tab2, tab3 = st.tabs(["📊 Signal Analysis", "🧠 Neural Distribution", "🔬 Feature Telemetry"])
         
         with tab1:
-            col_a, col_b = st.columns(2)
+    st.subheader("🔊 Audio Playback")
+    st.audio(audio_input, format="audio/wav") 
+    
+    col_a, col_b = st.columns(2)
+
             with col_a:
                 fig1, ax1 = plt.subplots(figsize=(10, 5), facecolor='#0d1117')
                 librosa.display.waveshow(y, sr=sr, ax=ax1, color='#58a6ff')
