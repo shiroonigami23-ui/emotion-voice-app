@@ -5,7 +5,8 @@ import librosa.display
 import matplotlib.pyplot as plt
 import joblib
 import io
-import soundfile as sf 
+import soundfile as sf
+from pydub import AudioSegment
 import random
 import pandas as pd
 from tensorflow.keras.models import load_model
@@ -41,21 +42,34 @@ def load_production_assets():
 model, scaler, lb = load_production_assets()
 
 def process_signal(audio_source):
-    # Reset stream position to the beginning to ensure it's readable
+    # Ensure we are at the start of the byte stream
     audio_source.seek(0)
     
-    # Read the data and samplerate from the BytesIO object
-    data, samplerate = sf.read(audio_source)
-    
-    # If the audio is stereo (2 channels), convert to mono for Librosa
+    try:
+        # Method A: Try reading with soundfile (Best for .wav from HF/Uploads)
+        data, samplerate = sf.read(audio_source)
+    except Exception:
+        # Method B: Rescue Mission - use pydub (Best for browser/mic WebM/OGG)
+        audio_source.seek(0)
+        audio = AudioSegment.from_file(audio_source)
+        # Convert to standard format for librosa
+        samplerate = audio.frame_rate
+        data = np.array(audio.get_array_of_samples()).astype(np.float32)
+        # Normalize if it's integer data
+        if audio.sample_width == 2:
+            data /= 32768.0
+        elif audio.sample_width == 4:
+            data /= 2147483648.0
+
+    # Ensure Mono signal
     if len(data.shape) > 1:
-        data = np.mean(data, axis=1)
-    
-    # Use the data directly in librosa features
-    y = data.astype(np.float32)
+        y = np.mean(data, axis=1)
+    else:
+        y = data
+        
     sr = samplerate
     
-    # Continue with your existing feature extraction
+    # Standard Feature Extraction Pipeline
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
     features = np.mean(mfccs.T, axis=0).reshape(1, -1)
     scaled = scaler.transform(features)
