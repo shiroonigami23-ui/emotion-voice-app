@@ -1,18 +1,17 @@
-import os
 import sys
+import os
 try:
     import matplotlib
-    if not hasattr(matplotlib, 'colormaps'):
-        from matplotlib import cm
-        matplotlib.colormaps = cm._colormaps
-except Exception:
-    pass
+    import matplotlib.pyplot as plt
+except ImportError:
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "matplotlib", "librosa", "tensorflow", "joblib"])
+    import matplotlib.pyplot as plt
 
 import streamlit as st
 import numpy as np
 import librosa
 import librosa.display
-import matplotlib.pyplot as plt
 import joblib
 import io
 import pandas as pd
