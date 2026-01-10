@@ -25,6 +25,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# --- SESSION STATE INITIALIZATION ---
+if 'active_audio' not in st.session_state:
+    st.session_state.active_audio = None
+if 'last_source' not in st.session_state:
+    st.session_state.last_source = None
+
 MODEL_REPO = "ShiroOnigami23/emotion-voice-engine"
 DATA_REPO = "ShiroOnigami23/emotion-voice-dataset"
 
@@ -42,28 +48,32 @@ def load_production_assets():
 model, scaler, lb = load_production_assets()
 
 def process_signal(audio_source):
+    """Strictly follows the preprocessing pipeline: Resample -> Trim -> Normalize -> MFCC"""
     audio_source.seek(0)
     
     try:
-        # Step A: Standard Load 
+        # Step 1: Standard Load at 16kHz (Standard for your model)
         y, sr = librosa.load(audio_source, sr=16000, res_type='kaiser_fast')
     except Exception:
-    
+        # Fallback for raw browser/mic formats
         audio_source.seek(0)
         audio = AudioSegment.from_file(audio_source)
-        
         audio = audio.set_frame_rate(16000).set_channels(1)
         sr = 16000
         y = np.array(audio.get_array_of_samples()).astype(np.float32) / 32768.0
 
-
+    # Step 2: Trim Silence
     y, _ = librosa.effects.trim(y)
+    
+    # Step 3: Amplitude Normalization
     if np.max(np.abs(y)) > 0:
         y = y / np.max(np.abs(y))
 
+    # Step 4: Feature Extraction (40-Dim MFCC)
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
     features = np.mean(mfccs.T, axis=0).reshape(1, -1)
     
+    # Step 5: Standardization & Inference
     scaled = scaler.transform(features)
     prediction = model.predict(scaled, verbose=0)[0]
     return y, sr, mfccs, prediction
@@ -71,14 +81,14 @@ def process_signal(audio_source):
 # --- SIDEBAR: RESEARCH CONTROLS ---
 st.sidebar.title("🎛️ Engine Control Unit")
 st.sidebar.markdown("---")
+
+# Clear Logic
 if st.sidebar.button("🗑️ Clear Current Signal"):
     st.session_state.active_audio = None
+    st.session_state.last_source = None
     st.rerun()
-    
-# Initialize session state for tracking active audio
-if 'active_audio' not in st.session_state:
-    st.session_state.active_audio = None
 
+# 1. RANDOM TEST LOGIC
 if st.sidebar.button("⚡ Random Neural Test"):
     try:
         all_files = list_repo_files(repo_id=DATA_REPO, repo_type="dataset")
@@ -94,23 +104,26 @@ if st.sidebar.button("⚡ Random Neural Test"):
         st.sidebar.error("HF Connection Lost.")
 
 st.sidebar.markdown("### 🎤 Live Bio-Telemetry")
-mic_audio = mic_recorder(start_prompt="Initialize Microphone", stop_prompt="Terminate Capture", key='ser_mic')
-if mic_audio:
-    new_bytes = io.BytesIO(mic_audio['bytes'])
-    st.session_state.active_audio = new_bytes
+# 2. MICROPHONE LOGIC
+mic_data = mic_recorder(start_prompt="Initialize Microphone", stop_prompt="Terminate Capture", key='ser_mic')
+if mic_data:
+    # Use a specific key check to prevent automatic overwriting of random tests
+    st.session_state.active_audio = io.BytesIO(mic_data['bytes'])
     st.session_state.last_source = "mic"
 
 st.sidebar.markdown("### 📁 Manual Vector Upload")
-# 3. UPLOAD
-uploaded = st.sidebar.file_uploader("Upload .wav signal", type=["wav"])
+# 3. UPLOAD LOGIC
+uploaded = st.sidebar.file_uploader("Upload .wav signal", type=["wav"], key="manual_upload")
 if uploaded:
     st.session_state.active_audio = uploaded
     st.session_state.last_source = "upload"
 
-audio_input = st.session_state.active_audio
 # --- MAIN DASHBOARD ---
 st.title("🎙️ Speech Emotion Recognition Professional Pipeline")
 st.caption("Deep Learning Engine | Keras 3.0 | 40-Dimension MFCC Feature Extraction")
+
+# Retrieve from session state
+audio_input = st.session_state.active_audio
 
 if audio_input and model:
     try:
@@ -121,16 +134,19 @@ if audio_input and model:
             confidence = np.max(pred) * 100
             status.update(label=f"✅ Inference Complete: {label}", state="complete")
 
+        # METRICS
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Classified Emotion", label)
         m2.metric("Neural Confidence", f"{confidence:.2f}%")
         m3.metric("Spectral Sampling", f"{sr} Hz")
         m4.metric("MFCC Coeffs", "40-Dim")
         
+        # Audio Player (Resets seek to 0)
         audio_input.seek(0)
         st.audio(audio_input)
         st.markdown("---")
 
+        # VISUALIZATION
         tab1, tab2, tab3 = st.tabs(["📊 Signal Analysis", "🧠 Neural Distribution", "🔬 Feature Telemetry"])
         
         with tab1:
@@ -155,10 +171,11 @@ if audio_input and model:
             st.pyplot(fig_bar)
 
         with tab3:
+            st.write(f"Source: {st.session_state.last_source.upper()}")
             st.dataframe(pd.DataFrame([pred], columns=lb.classes_).style.highlight_max(axis=1, color='#238636'))
 
     except Exception as e:
         st.error(f"Signal Processing Error: {e}")
 else:
-    st.info("Awaiting acoustic signal.")
-    
+    st.info("Awaiting acoustic signal. Use the Control Unit (Sidebar) to initialize the engine.")
+            
