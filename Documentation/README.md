@@ -20,7 +20,7 @@ Quickly access the technical reports and assets for this project:
 - **Real-time Ready:** Low-latency inference engine providing spectral results in under 100ms.
 
 ## 🛠️ Tech Stack
-- **Language:** Python 3.12
+- **Language:** Python 3.11
 - **Audio Processing:** Librosa, Resampy (Kaiser-Fast Resampling)
 - **Deep Learning:** TensorFlow 2.15, Keras 3
 - **UI/UX:** Streamlit Professional Scientific Dashboard
