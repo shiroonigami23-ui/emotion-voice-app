@@ -1,3 +1,13 @@
+import os
+import sys
+try:
+    import matplotlib
+    if not hasattr(matplotlib, 'colormaps'):
+        from matplotlib import cm
+        matplotlib.colormaps = cm._colormaps
+except Exception:
+    pass
+
 import streamlit as st
 import numpy as np
 import librosa
@@ -6,14 +16,6 @@ import matplotlib.pyplot as plt
 import joblib
 import io
 import pandas as pd
-import os
-import sys
-
-try:
-    import sunau
-except ImportError:
-    st.warning("Runtime Adjustment: Python 3.13 detected. Patching audio headers...")
-
 from tensorflow.keras.models import load_model
 from streamlit_mic_recorder import mic_recorder
 from huggingface_hub import hf_hub_download
@@ -21,6 +23,7 @@ from huggingface_hub import hf_hub_download
 # --- THEME & ASSETS ---
 st.set_page_config(page_title="SER Professional Engine", layout="wide", page_icon="🎙️")
 
+# Custom CSS for Professional Scientific Branding
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
@@ -39,6 +42,7 @@ REPO_ID = "ShiroOnigami23/emotion-voice-engine"
 def load_assets():
     with st.spinner("📥 Synchronizing Neural Weights from Hugging Face..."):
         try:
+            # Using hf_hub_download to get the exact paths from your repo
             model_path = hf_hub_download(repo_id=REPO_ID, filename="emotion_brain.keras")
             scaler_path = hf_hub_download(repo_id=REPO_ID, filename="artifacts/scaler.joblib")
             encoder_path = hf_hub_download(repo_id=REPO_ID, filename="artifacts/label_encoder.joblib")
@@ -64,14 +68,14 @@ def process_audio(audio_source):
 
 # --- UI LAYOUT ---
 st.title("🎙️ Professional Audio Emotion Pipeline")
-st.caption("Developed by ShiroOnigami & AI Thought Partner | Version 2.5 (High-Fidelity)")
+st.caption("Developed by ShiroOnigami | Version 2.6 (Production-Ready)")
 
-# --- SIDEBAR: DATASET INTEGRATION & INPUT ---
+# --- SIDEBAR: INPUT & DATASET ---
 st.sidebar.title("🎛️ Input Controls")
 
-# 1. Dataset Integration (The "Sample Gallery")
+# DATASET INTEGRATION
 st.sidebar.subheader("📁 Quick-Load Samples")
-st.sidebar.caption("Load verified signals from Hugging Face Dataset")
+st.sidebar.caption("Load verified signals from Hugging Face")
 sample_files = ["happy_sample.wav", "angry_sample.wav", "fear_sample.wav"] 
 selected_sample = st.sidebar.selectbox("Choose a sample signal", ["None"] + sample_files)
 
@@ -79,13 +83,12 @@ audio_input = None
 
 if selected_sample != "None":
     with st.spinner(f"Streaming {selected_sample}..."):
-        # Downloading sample from the 'samples' folder in your HF repo
+        # ASSUMPTION: You have a 'samples/' folder in your HF repo
         sample_path = hf_hub_download(repo_id=REPO_ID, filename=f"samples/{selected_sample}")
-        audio_input = open(sample_path, "rb")
-        st.sidebar.success(f"Sample '{selected_sample}' Loaded!")
+        with open(sample_path, "rb") as f:
+            audio_input = io.BytesIO(f.read())
+        st.sidebar.success("Sample Loaded!")
 else:
-    # 2. Manual Inputs
-    st.sidebar.divider()
     input_method = st.sidebar.radio("Select Manual Input", ["🎤 Live Microphone", "📁 File Upload (.wav)"])
     if input_method == "🎤 Live Microphone":
         mic_audio = mic_recorder(start_prompt="Record Audio", stop_prompt="Stop Engine", key='recorder')
@@ -99,21 +102,16 @@ else:
 # --- MAIN DASHBOARD ---
 if audio_input and model is not None:
     with st.status("🚀 Initializing Neural Pipeline...", expanded=True) as status:
-        st.write("Extracting MFCC Spectrograms (40-Coefficient Space)...")
         y, sr, mfccs, pred = process_audio(audio_input)
-        
-        st.write("Applying Feature Scaling & Normalization...")
         label = lb.inverse_transform([np.argmax(pred)])[0].upper()
         confidence = np.max(pred) * 100
-        
         status.update(label=f"✅ Inference Complete: {label}", state="complete", expanded=False)
 
-    # Metrics Display
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Predicted State", label)
     m2.metric("Confidence Score", f"{confidence:.2f}%")
     m3.metric("Sampling Rate", f"{sr} Hz")
-    m4.metric("Engine Base", "Keras/TensorFlow")
+    m4.metric("Engine Base", "Keras 3")
 
     st.divider()
 
@@ -123,30 +121,24 @@ if audio_input and model is not None:
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), facecolor='#0e1117')
         plt.subplots_adjust(hspace=0.5)
         librosa.display.waveshow(y, sr=sr, ax=ax1, color='#58a6ff')
-        ax1.set_title("Waveform (Temporal Domain)", color='white', loc='left')
         ax1.set_facecolor('#161b22')
         ax1.tick_params(colors='white')
-
+        
         img = librosa.display.specshow(mfccs, x_axis='time', ax=ax2, cmap='magma')
-        ax2.set_title("Spectral Density (MFCC Coefficients)", color='white', loc='left')
         ax2.set_facecolor('#161b22')
         ax2.tick_params(colors='white')
         fig.colorbar(img, ax=ax2, format="%+2.f dB")
         st.pyplot(fig)
 
     with tab2:
-        st.subheader("Softmax Probability Distribution")
         fig_bar, ax_bar = plt.subplots(figsize=(10, 5), facecolor='#0e1117')
-        colors = ['#1f6feb' if (x == np.max(pred)) else '#21262d' for x in pred]
-        ax_bar.bar(lb.classes_, pred, color=colors, edgecolor='#30363d')
+        ax_bar.bar(lb.classes_, pred, color='#1f6feb')
         ax_bar.set_facecolor('#161b22')
         ax_bar.tick_params(colors='white')
-        ax_bar.set_ylim(0, 1)
         st.pyplot(fig_bar)
 
     with tab3:
         raw_df = pd.DataFrame([pred], columns=lb.classes_)
-        st.dataframe(raw_df.style.highlight_max(axis=1, color='#238636').format("{:.6f}"), use_container_width=True)
-        st.info("Inference Audit: Multi-class softmax output after feature normalization.")
+        st.dataframe(raw_df.style.highlight_max(axis=1, color='#238636'), use_container_width=True)
 else:
-    st.info("Awaiting acoustic signal. Use the sidebar to record, upload, or load a sample.")
+    st.info("Awaiting acoustic signal from sidebar.")
