@@ -45,18 +45,18 @@ def process_signal(audio_source):
     audio_source.seek(0)
     
     try:
-        # Step A: Standard Load (Works for .wav dataset files)
+        # Step A: Standard Load 
         y, sr = librosa.load(audio_source, sr=16000, res_type='kaiser_fast')
     except Exception:
-        # [span_5](start_span)Step B: Format Rescue (Required for Microphone WebM/OGG)[span_5](end_span)
+    
         audio_source.seek(0)
         audio = AudioSegment.from_file(audio_source)
-        # [span_6](start_span)Convert to 16kHz Mono to match your model[span_6](end_span)
+        
         audio = audio.set_frame_rate(16000).set_channels(1)
         sr = 16000
         y = np.array(audio.get_array_of_samples()).astype(np.float32) / 32768.0
 
-    # PRE-PROCESSING PIPELINE (Matches your features.md)
+
     y, _ = librosa.effects.trim(y)
     if np.max(np.abs(y)) > 0:
         y = y / np.max(np.abs(y))
@@ -68,35 +68,43 @@ def process_signal(audio_source):
     prediction = model.predict(scaled, verbose=0)[0]
     return y, sr, mfccs, prediction
 
-# --- SIDEBAR ---
+# --- SIDEBAR: RESEARCH CONTROLS ---
 st.sidebar.title("🎛️ Engine Control Unit")
 st.sidebar.markdown("---")
 
-audio_input = None
+# Initialize session state for tracking active audio
+if 'active_audio' not in st.session_state:
+    st.session_state.active_audio = None
 
-if st.sidebar.button("⚡ Run Random Neural Test"):
+if st.sidebar.button("⚡ Random Neural Test"):
     try:
         all_files = list_repo_files(repo_id=DATA_REPO, repo_type="dataset")
         wav_pool = [f for f in all_files if f.startswith("samples/") and f.endswith(".wav")]
         if wav_pool:
             target = random.choice(wav_pool)
-            with st.sidebar.status(f"Fetching vector: {target.split('/')[-1]}..."):
+            with st.sidebar.status(f"Fetching: {target.split('/')[-1]}..."):
                 d_p = hf_hub_download(repo_id=DATA_REPO, filename=target, repo_type="dataset")
                 with open(d_p, "rb") as f:
-                    audio_input = io.BytesIO(f.read())
+                    st.session_state.active_audio = io.BytesIO(f.read())
+                    st.session_state.last_source = "random"
     except Exception as e:
         st.sidebar.error("HF Connection Lost.")
 
 st.sidebar.markdown("### 🎤 Live Bio-Telemetry")
 mic_audio = mic_recorder(start_prompt="Initialize Microphone", stop_prompt="Terminate Capture", key='ser_mic')
 if mic_audio:
-    audio_input = io.BytesIO(mic_audio['bytes'])
+    new_bytes = io.BytesIO(mic_audio['bytes'])
+    st.session_state.active_audio = new_bytes
+    st.session_state.last_source = "mic"
 
 st.sidebar.markdown("### 📁 Manual Vector Upload")
+# 3. UPLOAD
 uploaded = st.sidebar.file_uploader("Upload .wav signal", type=["wav"])
 if uploaded:
-    audio_input = uploaded
+    st.session_state.active_audio = uploaded
+    st.session_state.last_source = "upload"
 
+audio_input = st.session_state.active_audio
 # --- MAIN DASHBOARD ---
 st.title("🎙️ Speech Emotion Recognition Professional Pipeline")
 st.caption("Deep Learning Engine | Keras 3.0 | 40-Dimension MFCC Feature Extraction")
