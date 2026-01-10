@@ -71,7 +71,10 @@ def process_signal(audio_source):
 # --- SIDEBAR: RESEARCH CONTROLS ---
 st.sidebar.title("🎛️ Engine Control Unit")
 st.sidebar.markdown("---")
-
+if st.sidebar.button("🗑️ Clear Current Signal"):
+    st.session_state.active_audio = None
+    st.rerun()
+    
 # Initialize session state for tracking active audio
 if 'active_audio' not in st.session_state:
     st.session_state.active_audio = None
