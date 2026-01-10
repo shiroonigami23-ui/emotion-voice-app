@@ -117,9 +117,7 @@ if audio_input and model:
         m3.metric("Spectral Sampling", f"{sr} Hz")
         m4.metric("MFCC Coeffs", "40-Dim")
         
-        # Audio playback 
-        audio_input.seek(0)
-        st.audio(audio_input, format="audio/wav")
+        
         st.markdown("---")
 
         # VISUALIZATION
