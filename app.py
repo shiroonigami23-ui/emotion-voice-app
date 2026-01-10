@@ -14,37 +14,32 @@ from huggingface_hub import hf_hub_download
 # --- THEME & ASSETS ---
 st.set_page_config(page_title="SER Professional Engine", layout="wide", page_icon="🎙️")
 
-# Custom CSS for Professional Scientific Branding
+# Force CSS Styling
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
     .stMetric { background-color: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
     h1, h2, h3 { color: #f0f6fc; font-family: 'Helvetica Neue', sans-serif; }
-    .stTabs [data-baseweb="tab-list"] { gap: 24px; }
-    .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: #161b22; border-radius: 5px; color: #8b949e; }
-    .stTabs [aria-selected="true"] { background-color: #1f6feb; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-# CONFIGURATION
 REPO_ID = "ShiroOnigami23/emotion-voice-engine"
 
 @st.cache_resource
 def load_assets():
-    with st.spinner("📥 Synchronizing Neural Weights from Hugging Face..."):
-        try:
-            # Using hf_hub_download to get the exact paths from your repo
-            model_path = hf_hub_download(repo_id=REPO_ID, filename="emotion_brain.keras")
-            scaler_path = hf_hub_download(repo_id=REPO_ID, filename="artifacts/scaler.joblib")
-            encoder_path = hf_hub_download(repo_id=REPO_ID, filename="artifacts/label_encoder.joblib")
-            
-            model = load_model(model_path)
-            scaler = joblib.load(scaler_path)
-            lb = joblib.load(encoder_path)
-            return model, scaler, lb
-        except Exception as e:
-            st.error(f"Engine Failure: {e}")
-            return None, None, None
+    try:
+        # Pulling from your HF repo
+        model_path = hf_hub_download(repo_id=REPO_ID, filename="emotion_brain.keras")
+        scaler_path = hf_hub_download(repo_id=REPO_ID, filename="artifacts/scaler.joblib")
+        encoder_path = hf_hub_download(repo_id=REPO_ID, filename="artifacts/label_encoder.joblib")
+        
+        model = load_model(model_path)
+        scaler = joblib.load(scaler_path)
+        lb = joblib.load(encoder_path)
+        return model, scaler, lb
+    except Exception as e:
+        st.error(f"HF Sync Error: {e}")
+        return None, None, None
 
 model, scaler, lb = load_assets()
 
@@ -57,79 +52,44 @@ def process_audio(audio_source):
     pred = model.predict(scaled, verbose=0)[0]
     return y, sr, mfcc_feat, pred
 
-# --- UI LAYOUT ---
+# --- UI ---
 st.title("🎙️ Professional Audio Emotion Pipeline")
-st.caption("Developed by ShiroOnigami | Version 2.6 (Production-Ready)")
 
-# --- SIDEBAR: INPUT & DATASET ---
-st.sidebar.title("🎛️ Input Controls")
-
-# DATASET INTEGRATION
-st.sidebar.subheader("📁 Quick-Load Samples")
-st.sidebar.caption("Load verified signals from Hugging Face")
+# SIDEBAR
+st.sidebar.title("📁 Sample Gallery")
 sample_files = ["happy_sample.wav", "angry_sample.wav", "fear_sample.wav"] 
-selected_sample = st.sidebar.selectbox("Choose a sample signal", ["None"] + sample_files)
+selected_sample = st.sidebar.selectbox("Test with Dataset", ["None"] + sample_files)
 
 audio_input = None
 
 if selected_sample != "None":
-    with st.spinner(f"Streaming {selected_sample}..."):
-        # ASSUMPTION: You have a 'samples/' folder in your HF repo
-        sample_path = hf_hub_download(repo_id=REPO_ID, filename=f"samples/{selected_sample}")
-        with open(sample_path, "rb") as f:
-            audio_input = io.BytesIO(f.read())
-        st.sidebar.success("Sample Loaded!")
+    sample_path = hf_hub_download(repo_id=REPO_ID, filename=f"samples/{selected_sample}")
+    with open(sample_path, "rb") as f:
+        audio_input = io.BytesIO(f.read())
 else:
-    input_method = st.sidebar.radio("Select Manual Input", ["🎤 Live Microphone", "📁 File Upload (.wav)"])
-    if input_method == "🎤 Live Microphone":
-        mic_audio = mic_recorder(start_prompt="Record Audio", stop_prompt="Stop Engine", key='recorder')
-        if mic_audio:
-            audio_input = io.BytesIO(mic_audio['bytes'])
+    input_method = st.sidebar.radio("Manual Input", ["🎤 Mic", "📁 Upload"])
+    if input_method == "🎤 Mic":
+        mic_audio = mic_recorder(start_prompt="Record", stop_prompt="Stop", key='recorder')
+        if mic_audio: audio_input = io.BytesIO(mic_audio['bytes'])
     else:
-        uploaded_file = st.sidebar.file_uploader("Upload .wav Data", type=["wav"])
-        if uploaded_file:
-            audio_input = uploaded_file
+        uploaded_file = st.sidebar.file_uploader("WAV file", type=["wav"])
+        if uploaded_file: audio_input = uploaded_file
 
-# --- MAIN DASHBOARD ---
-if audio_input and model is not None:
-    with st.status("🚀 Initializing Neural Pipeline...", expanded=True) as status:
+# DASHBOARD
+if audio_input and model:
+    with st.spinner("Analyzing Spectral Data..."):
         y, sr, mfccs, pred = process_audio(audio_input)
         label = lb.inverse_transform([np.argmax(pred)])[0].upper()
         confidence = np.max(pred) * 100
-        status.update(label=f"✅ Inference Complete: {label}", state="complete", expanded=False)
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Predicted State", label)
-    m2.metric("Confidence Score", f"{confidence:.2f}%")
-    m3.metric("Sampling Rate", f"{sr} Hz")
-    m4.metric("Engine Base", "Keras 3")
-
-    st.divider()
-
-    tab1, tab2, tab3 = st.tabs(["📊 Spectral Heatmap", "🧠 Neural Distribution", "📋 Raw Telemetry"])
+    st.subheader(f"Result: {label} ({confidence:.1f}%)")
     
-    with tab1:
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), facecolor='#0e1117')
-        plt.subplots_adjust(hspace=0.5)
-        librosa.display.waveshow(y, sr=sr, ax=ax1, color='#58a6ff')
-        ax1.set_facecolor('#161b22')
-        ax1.tick_params(colors='white')
-        
-        img = librosa.display.specshow(mfccs, x_axis='time', ax=ax2, cmap='magma')
-        ax2.set_facecolor('#161b22')
-        ax2.tick_params(colors='white')
-        fig.colorbar(img, ax=ax2, format="%+2.f dB")
+    col1, col2 = st.columns(2)
+    with col1:
+        fig, ax = plt.subplots()
+        librosa.display.waveshow(y, sr=sr, ax=ax)
         st.pyplot(fig)
-
-    with tab2:
-        fig_bar, ax_bar = plt.subplots(figsize=(10, 5), facecolor='#0e1117')
-        ax_bar.bar(lb.classes_, pred, color='#1f6feb')
-        ax_bar.set_facecolor('#161b22')
-        ax_bar.tick_params(colors='white')
-        st.pyplot(fig_bar)
-
-    with tab3:
-        raw_df = pd.DataFrame([pred], columns=lb.classes_)
-        st.dataframe(raw_df.style.highlight_max(axis=1, color='#238636'), use_container_width=True)
-else:
-    st.info("Awaiting acoustic signal from sidebar.")
+    with col2:
+        fig2, ax2 = plt.subplots()
+        librosa.display.specshow(mfccs, x_axis='time', ax=ax2)
+        st.pyplot(fig2)
