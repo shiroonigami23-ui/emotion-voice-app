@@ -1,7 +1,7 @@
 # 🏆 Project Summary: High-Precision Speech Emotion Recognition
 
 ## 🚀 Executive Achievement
-We have successfully developed a Deep Learning system capable of identifying human emotions from voice audio with a **91.6% Validation Accuracy**. By combining multiple global datasets (RAVDESS, TESS, CREMA-D, SAVEE) and implementing rigorous data balancing, the model has achieved a high level of generalization across different speakers and genders.
+I have successfully developed a Deep Learning system capable of identifying human emotions from voice audio with a **91.4% Validation Accuracy**. By combining multiple global datasets (RAVDESS, TESS, CREMA-D, SAVEE) and implementing rigorous data balancing, the model has achieved a high level of generalization across different speakers and genders.
 
 ## 📊 Performance Highlights
 - **Final Accuracy:** ~91% (Consistent across training and validation).
@@ -26,4 +26,4 @@ The following assets have been generated and secured in Google Drive:
 This project demonstrates that through strategic feature engineering (MFCCs) and balanced dataset curation, it is possible to build a robust emotion detector that overcomes the common "middle-of-the-script" failures. The system is now ready for deployment or further fine-tuning for specific use cases.
 
 ---
-**Project Status:** ✅ COMPLETE | **Accuracy:** 91.6%
+**Project Status:** ✅ COMPLETE | **Accuracy:** 91.4%
