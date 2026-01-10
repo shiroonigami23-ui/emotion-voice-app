@@ -1,5 +1,6 @@
 streamlit
 numpy
+soundfile
 librosa
 matplotlib
 joblib
