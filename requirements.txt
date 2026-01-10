@@ -1,6 +1,7 @@
 streamlit
 numpy
 librosa
+matplotlib
 joblib
 pandas
 tensorflow
