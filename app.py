@@ -1,20 +1,12 @@
-import sys
-import os
-try:
-    import matplotlib
-    import matplotlib.pyplot as plt
-except ImportError:
-    import subprocess
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "matplotlib", "librosa", "tensorflow", "joblib"])
-    import matplotlib.pyplot as plt
-
 import streamlit as st
 import numpy as np
 import librosa
 import librosa.display
+import matplotlib.pyplot as plt
 import joblib
 import io
 import pandas as pd
+import os
 from tensorflow.keras.models import load_model
 from streamlit_mic_recorder import mic_recorder
 from huggingface_hub import hf_hub_download
