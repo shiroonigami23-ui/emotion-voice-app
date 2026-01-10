@@ -8,7 +8,7 @@ This project is a high-precision analytical system built for professional audio 
 Quickly access the technical reports and assets for this project:
 
 - 🧠 **[Technical Architecture & Roadmap](./Documentation/technical.md)**: Details on the DNN structure, framework choices, and future AI goals.
-- 🎙️ **[Feature Engineering Report](./Documentation/features.md)**: Deep dive into MFCC extraction and data preprocessing.
+- 🎙️ **[Feature Engineering Report](./features.md)**: Deep dive into MFCC extraction and data preprocessing.
 - 🏆 **[Project Summary](./Documentation/summary.md)**: Executive overview of results, metrics, and final accuracy.
 - ⚙️ **[App Requirements](./Documentation/requirements.txt)**: List of Python libraries needed to run the app.
 
