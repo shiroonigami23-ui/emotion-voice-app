@@ -1,0 +1,10 @@
+streamlit
+numpy
+librosa
+joblib
+pandas
+tensorflow
+scikit-learn
+streamlit-mic-recorder
+resampy
+huggingface_hub
