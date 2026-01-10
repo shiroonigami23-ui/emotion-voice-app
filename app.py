@@ -128,10 +128,10 @@ if audio_input and model:
         tab1, tab2, tab3 = st.tabs(["📊 Signal Analysis", "🧠 Neural Distribution", "🔬 Feature Telemetry"])
         
         with tab1:
-    st.subheader("🔊 Audio Playback")
-    st.audio(audio_input, format="audio/wav") 
+              st.subheader("🔊 Audio Playback")
+              st.audio(audio_input, format="audio/wav") 
     
-    col_a, col_b = st.columns(2)
+              col_a, col_b = st.columns(2)
 
             with col_a:
                 fig1, ax1 = plt.subplots(figsize=(10, 5), facecolor='#0d1117')
