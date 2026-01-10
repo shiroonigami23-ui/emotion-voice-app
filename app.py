@@ -13,7 +13,7 @@ from tensorflow.keras.models import load_model
 from streamlit_mic_recorder import mic_recorder
 from huggingface_hub import hf_hub_download, list_repo_files
 
-# --- PRESTIGE UI CONFIG ---
+# --- UI CONFIG ---
 st.set_page_config(page_title="SER Neural Engine v2.5", layout="wide", page_icon="🧠")
 
 st.markdown("""
@@ -25,7 +25,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- SESSION STATE INITIALIZATION ---
+# --- SESSION STATE ---
 if 'active_audio' not in st.session_state:
     st.session_state.active_audio = None
 if 'last_source' not in st.session_state:
@@ -48,40 +48,46 @@ def load_production_assets():
 model, scaler, lb = load_production_assets()
 
 def process_signal(audio_source):
-    """Strictly follows Preprocessing Pipeline: Resample -> Trim -> Normalize -> MFCC"""
+    """
+    [span_2](start_span)STRICT PREPROCESSING PIPELINE (Per features.md)[span_2](end_span)
+    1. Resampling: 16000Hz kaiser_fast
+    2. Normalization: Silence Trimmed & Amplitude Normalized
+    3. Averaging: 40-Dim MFCC
+    4. Standardization: StandardScaler
+    """
     audio_source.seek(0)
     
     try:
-        # Step 1: Resampling (Matches features.md Step 1)
+        # [span_3](start_span)Step 1: Resampling[span_3](end_span)
         y, sr = librosa.load(audio_source, sr=16000, res_type='kaiser_fast')
     except Exception:
-        # Fallback for Mic/WebM formats using pydub
+        # Rescue for Mic formats
         audio_source.seek(0)
         audio = AudioSegment.from_file(audio_source)
         audio = audio.set_frame_rate(16000).set_channels(1)
         sr = 16000
         y = np.array(audio.get_array_of_samples()).astype(np.float32) / 32768.0
 
-    # Step 2: Normalization (Silence Trimming & Amplitude - Matches features.md Step 2)
+    # [span_4](start_span)Step 2: Normalization (TRIM & SCALE)[span_4](end_span)
     y, _ = librosa.effects.trim(y)
     if np.max(np.abs(y)) > 0:
         y = y / np.max(np.abs(y))
 
-    # Step 3: Averaging (40-Dim MFCC - Matches features.md Step 3)
+    # [span_5](start_span)Step 3: Feature Extraction (40-Dim)[span_5](end_span)
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
     features = np.mean(mfccs.T, axis=0).reshape(1, -1)
     
-    # Step 4: Standardization (StandardScaler - Matches features.md Step 4)
+    # [span_6](start_span)[span_7](start_span)Step 4: Standardization[span_6](end_span)[span_7](end_span)
     scaled = scaler.transform(features)
     
     prediction = model.predict(scaled, verbose=0)[0]
     return y, sr, mfccs, prediction
 
-# --- SIDEBAR: RESEARCH CONTROLS ---
+# --- SIDEBAR ---
 st.sidebar.title("🎛️ Engine Control Unit")
 st.sidebar.markdown("---")
 
-if st.sidebar.button("🗑️ Clear Current Signal"):
+if st.sidebar.button("🗑️ Clear Signal"):
     st.session_state.active_audio = None
     st.session_state.last_source = None
     st.rerun()
@@ -161,10 +167,11 @@ if audio_input and model:
             st.pyplot(fig_bar)
 
         with tab3:
-            st.write(f"Active Source: {st.session_state.last_source.upper()}")
+            st.write(f"Source: {st.session_state.get('last_source', 'Unknown').upper()}")
             st.dataframe(pd.DataFrame([pred], columns=lb.classes_).style.highlight_max(axis=1, color='#238636'))
 
     except Exception as e:
         st.error(f"Signal Processing Error: {e}")
 else:
-    st.info("Awaiting acoustic signal. Use the Control Unit (Sidebar) to initialize the engine.")
+    st.info("Awaiting acoustic signal.")
+    
