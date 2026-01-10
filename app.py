@@ -42,40 +42,32 @@ def load_production_assets():
 model, scaler, lb = load_production_assets()
 
 def process_signal(audio_source):
-    # Ensure we are at the start of the byte stream
+    # Ensure we start reading from the beginning of the file/stream
     audio_source.seek(0)
     
-    try:
-        # Method A: Try reading with soundfile (Best for .wav from HF/Uploads)
-        data, samplerate = sf.read(audio_source)
-    except Exception:
-        # Method B: Rescue Mission - use pydub (Best for browser/mic WebM/OGG)
-        audio_source.seek(0)
-        audio = AudioSegment.from_file(audio_source)
-        # Convert to standard format for librosa
-        samplerate = audio.frame_rate
-        data = np.array(audio.get_array_of_samples()).astype(np.float32)
-        # Normalize if it's integer data
-        if audio.sample_width == 2:
-            data /= 32768.0
-        elif audio.sample_width == 4:
-            data /= 2147483648.0
-
-    # Ensure Mono signal
-    if len(data.shape) > 1:
-        y = np.mean(data, axis=1)
-    else:
-        y = data
-        
-    sr = samplerate
+    # STEP 1 & 2: Load and Resample (matches your features.md)
+    # If you can't remember the rate, 16000 is most common for SER. 
+    # Try 16000 first, if not, try 22050.
+    y, sr = librosa.load(audio_source, sr=16000, res_type='kaiser_fast')
     
-    # Standard Feature Extraction Pipeline
+    # STEP 2 (cont.): Trim Silence (matches your features.md)
+    y, _ = librosa.effects.trim(y)
+    
+    # STEP 2 (cont.): Normalize Amplitude
+    if np.max(np.abs(y)) > 0:
+        y = y / np.max(np.abs(y))
+
+    # STEP 3: Feature Extraction (Averaging to 1D vector of length 40)
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
     features = np.mean(mfccs.T, axis=0).reshape(1, -1)
-    scaled = scaler.transform(features)
-    prediction = model.predict(scaled, verbose=0)[0]
     
+    # STEP 4: Standardization (Using your provided scaler.joblib)
+    scaled = scaler.transform(features)
+    
+    # Inference
+    prediction = model.predict(scaled, verbose=0)[0]
     return y, sr, mfccs, prediction
+    
 
 # --- SIDEBAR: RESEARCH CONTROLS ---
 st.sidebar.title("🎛️ Engine Control Unit")
