@@ -13,6 +13,7 @@ from tensorflow.keras.models import load_model
 from streamlit_mic_recorder import mic_recorder
 from huggingface_hub import hf_hub_download, list_repo_files
 
+# ---  UI CONFIG ---
 st.set_page_config(page_title="SER Neural Engine v2.5", layout="wide", page_icon="🧠")
 
 st.markdown("""
@@ -24,6 +25,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# CONFIG
 MODEL_REPO = "ShiroOnigami23/emotion-voice-engine"
 DATA_REPO = "ShiroOnigami23/emotion-voice-dataset"
 
@@ -35,39 +37,33 @@ def load_production_assets():
         e_p = hf_hub_download(repo_id=MODEL_REPO, filename="artifacts/label_encoder.joblib")
         return load_model(m_p), joblib.load(s_p), joblib.load(e_p)
     except Exception as e:
-        # Prevents total crash if HF is down or path is wrong
         st.error(f"⚠️ Engine Synchronization Failed: {e}")
         return None, None, None
 
 model, scaler, lb = load_production_assets()
 
 def process_signal(audio_source):
-    # Ensure we start reading from the beginning of the file/stream
+    
     audio_source.seek(0)
     
-    # STEP 1 & 2: Load and Resample (matches your features.md)
-    # If you can't remember the rate, 16000 is most common for SER. 
-    # Try 16000 first, if not, try 22050.
+    
     y, sr = librosa.load(audio_source, sr=16000, res_type='kaiser_fast')
     
-    # STEP 2 (cont.): Trim Silence (matches your features.md)
-    y, _ = librosa.effects.trim(y)
     
-    # STEP 2 (cont.): Normalize Amplitude
+    y, _ = librosa.effects.trim(y)
     if np.max(np.abs(y)) > 0:
         y = y / np.max(np.abs(y))
 
-    # STEP 3: Feature Extraction (Averaging to 1D vector of length 40)
+    
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
     features = np.mean(mfccs.T, axis=0).reshape(1, -1)
     
-    # STEP 4: Standardization (Using your provided scaler.joblib)
+    
     scaled = scaler.transform(features)
     
-    # Inference
+    
     prediction = model.predict(scaled, verbose=0)[0]
     return y, sr, mfccs, prediction
-    
 
 # --- SIDEBAR: RESEARCH CONTROLS ---
 st.sidebar.title("🎛️ Engine Control Unit")
@@ -75,11 +71,9 @@ st.sidebar.markdown("---")
 
 audio_input = None
 
-
 if st.sidebar.button("⚡ Run Random Neural Test"):
     try:
         all_files = list_repo_files(repo_id=DATA_REPO, repo_type="dataset")
-    
         wav_pool = [f for f in all_files if f.startswith("samples/") and f.endswith(".wav")]
         if wav_pool:
             target = random.choice(wav_pool)
@@ -108,6 +102,7 @@ st.caption("Deep Learning Engine | Keras 3.0 | 40-Dimension MFCC Feature Extract
 
 if audio_input and model:
     try:
+        # Run the intelligence pipeline
         with st.status("🚀 Running Neural Inference Pipeline...", expanded=True) as status:
             y, sr, mfccs, pred = process_signal(audio_input)
             label_idx = np.argmax(pred)
@@ -121,18 +116,21 @@ if audio_input and model:
         m2.metric("Neural Confidence", f"{confidence:.2f}%")
         m3.metric("Spectral Sampling", f"{sr} Hz")
         m4.metric("MFCC Coeffs", "40-Dim")
+        
+        # Audio playback 
+        audio_input.seek(0)
         st.audio(audio_input, format="audio/wav")
         st.markdown("---")
 
         # VISUALIZATION
         tab1, tab2, tab3 = st.tabs(["📊 Signal Analysis", "🧠 Neural Distribution", "🔬 Feature Telemetry"])
         
-            with tab1:
-              st.subheader("🔊 Audio Playback")
-              st.audio(audio_input, format="audio/wav") 
-    
-              col_a, col_b = st.columns(2)
-
+        with tab1:
+            st.subheader("🔊 Audio Playback")
+            audio_input.seek(0)
+            st.audio(audio_input, format="audio/wav") 
+            
+            col_a, col_b = st.columns(2)
             with col_a:
                 fig1, ax1 = plt.subplots(figsize=(10, 5), facecolor='#0d1117')
                 librosa.display.waveshow(y, sr=sr, ax=ax1, color='#58a6ff')
@@ -147,7 +145,7 @@ if audio_input and model:
                 ax2.tick_params(colors='white')
                 st.pyplot(fig2)
 
-    with tab2:
+        with tab2:
             st.subheader("Softmax Distribution (Model Brain Decision)")
             prob_df = pd.DataFrame({'Emotion': lb.classes_, 'Probability': pred})
             fig_bar, ax_bar = plt.subplots(figsize=(12, 5), facecolor='#0d1117')
@@ -162,9 +160,10 @@ if audio_input and model:
             st.subheader("Raw Prediction Vectors")
             raw_data = pd.DataFrame([pred], columns=lb.classes_)
             st.dataframe(raw_data.style.highlight_max(axis=1, color='#238636').format("{:.6f}"), use_container_width=True)
-            st.write("**Researcher Audit:** Signal normalized via StandardScaler. Inference via Keras-TensorFlow.")
+            st.write("**Researcher Audit:** Signal normalized and trimmed. Features scaled via StandardScaler.")
 
     except Exception as e:
         st.error(f"Signal Processing Error: {e}")
 else:
     st.info("Awaiting acoustic signal. Use the Control Unit (Sidebar) to initialize the engine.")
+    
