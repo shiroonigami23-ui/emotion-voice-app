@@ -127,7 +127,7 @@ if audio_input and model:
         # VISUALIZATION
         tab1, tab2, tab3 = st.tabs(["📊 Signal Analysis", "🧠 Neural Distribution", "🔬 Feature Telemetry"])
         
-        with tab1:
+            with tab1:
               st.subheader("🔊 Audio Playback")
               st.audio(audio_input, format="audio/wav") 
     
@@ -147,7 +147,7 @@ if audio_input and model:
                 ax2.tick_params(colors='white')
                 st.pyplot(fig2)
 
-        with tab2:
+    with tab2:
             st.subheader("Softmax Distribution (Model Brain Decision)")
             prob_df = pd.DataFrame({'Emotion': lb.classes_, 'Probability': pred})
             fig_bar, ax_bar = plt.subplots(figsize=(12, 5), facecolor='#0d1117')
