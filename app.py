@@ -5,13 +5,13 @@ import librosa.display
 import matplotlib.pyplot as plt
 import joblib
 import io
+import soundfile as sf 
 import random
 import pandas as pd
 from tensorflow.keras.models import load_model
 from streamlit_mic_recorder import mic_recorder
 from huggingface_hub import hf_hub_download, list_repo_files
 
-# --- PRESTIGE UI CONFIG ---
 st.set_page_config(page_title="SER Neural Engine v2.5", layout="wide", page_icon="🧠")
 
 st.markdown("""
@@ -23,7 +23,6 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# CONFIG - Exactly as you verified
 MODEL_REPO = "ShiroOnigami23/emotion-voice-engine"
 DATA_REPO = "ShiroOnigami23/emotion-voice-dataset"
 
@@ -42,11 +41,26 @@ def load_production_assets():
 model, scaler, lb = load_production_assets()
 
 def process_signal(audio_source):
-    y, sr = librosa.load(audio_source, res_type='kaiser_fast')
+    # Reset stream position to the beginning to ensure it's readable
+    audio_source.seek(0)
+    
+    # Read the data and samplerate from the BytesIO object
+    data, samplerate = sf.read(audio_source)
+    
+    # If the audio is stereo (2 channels), convert to mono for Librosa
+    if len(data.shape) > 1:
+        data = np.mean(data, axis=1)
+    
+    # Use the data directly in librosa features
+    y = data.astype(np.float32)
+    sr = samplerate
+    
+    # Continue with your existing feature extraction
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
     features = np.mean(mfccs.T, axis=0).reshape(1, -1)
     scaled = scaler.transform(features)
     prediction = model.predict(scaled, verbose=0)[0]
+    
     return y, sr, mfccs, prediction
 
 # --- SIDEBAR: RESEARCH CONTROLS ---
@@ -55,11 +69,11 @@ st.sidebar.markdown("---")
 
 audio_input = None
 
-# CRASH-RESISTANT RANDOM TESTER
+
 if st.sidebar.button("⚡ Run Random Neural Test"):
     try:
         all_files = list_repo_files(repo_id=DATA_REPO, repo_type="dataset")
-        # Looks specifically in your new 'samples/' folder
+    
         wav_pool = [f for f in all_files if f.startswith("samples/") and f.endswith(".wav")]
         if wav_pool:
             target = random.choice(wav_pool)
