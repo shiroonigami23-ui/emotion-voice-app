@@ -10,4 +10,3 @@ streamlit-mic-recorder
 scikit-learn==1.6.1
 soundfile
 pydub
-resampy
